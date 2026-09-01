@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Chat</title>
+<style>
+  :root {
+    --bg: #f5f5f4;
+    --panel: #ffffff;
+    --border: #e5e3e0;
+    --text: #1c1b1a;
+    --muted: #6b6864;
+    --accent: #2563eb;
+    --accent-text: #ffffff;
+    --bubble-user: #2563eb;
+    --bubble-user-text: #ffffff;
+    --bubble-agent: #f0efed;
+    --bubble-agent-text: #1c1b1a;
+    --error: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17171a;
+      --panel: #202024;
+      --border: #302f34;
+      --text: #ececec;
+      --muted: #97958f;
+      --accent: #3b82f6;
+      --accent-text: #ffffff;
+      --bubble-user: #3b82f6;
+      --bubble-user-text: #ffffff;
+      --bubble-agent: #2b2a2f;
+      --bubble-agent-text: #ececec;
+      --error: #f87171;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 24px;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 720px;
+    height: min(720px, 100%);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .status {
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+
+  .status.online .dot { background: #22c55e; }
+  .status.offline .dot { background: var(--error); }
+
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .empty {
+    margin: auto;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 280px;
+    line-height: 1.5;
+  }
+
+  .row {
+    display: flex;
+    width: 100%;
+  }
+
+  .row.user { justify-content: flex-end; }
+  .row.agent { justify-content: flex-start; }
+
+  .bubble {
+    max-width: 78%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+
+  .row.user .bubble {
+    background: var(--bubble-user);
+    color: var(--bubble-user-text);
+    border-bottom-right-radius: 4px;
+  }
+
+  .row.agent .bubble {
+    background: var(--bubble-agent);
+    color: var(--bubble-agent-text);
+    border-bottom-left-radius: 4px;
+  }
+
+  .row.agent .bubble.error {
+    color: var(--error);
+    border: 1px solid var(--error);
+    background: transparent;
+  }
+
+  .bubble.typing::after {
+    content: "▋";
+    animation: blink 1s step-start infinite;
+    margin-left: 2px;
+  }
+
+  @keyframes blink { 50% { opacity: 0; } }
+
+  form {
+    display: flex;
+    gap: 8px;
+    padding: 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  textarea {
+    flex: 1;
+    resize: none;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--bg);
+    color: var(--text);
+    max-height: 120px;
+  }
+
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  button {
+    border: none;
+    border-radius: 10px;
+    padding: 0 18px;
+    background: var(--accent);
+    color: var(--accent-text);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Agent Chat</h1>
+      <span class="status" id="status"><span class="dot"></span><span id="status-text">checking…</span></span>
+    </header>
+
+    <div class="messages" id="messages">
+      <div class="empty" id="empty">Ask it anything. Replies stream in token by token from <code>/chat/stream</code>.</div>
+    </div>
+
+    <form id="form">
+      <textarea id="input" rows="1" placeholder="Message the agent…" autofocus></textarea>
+      <button id="send" type="submit">Send</button>
+    </form>
+  </div>
+
+<script>
+  const messagesEl = document.getElementById("messages");
+  const emptyEl = document.getElementById("empty");
+  const form = document.getElementById("form");
+  const input = document.getElementById("input");
+  const sendBtn = document.getElementById("send");
+  const statusEl = document.getElementById("status");
+  const statusText = document.getElementById("status-text");
+
+  let history = [];
+
+  async function checkHealth() {
+    try {
+      const res = await fetch("/health");
+      if (!res.ok) throw new Error();
+      statusEl.className = "status online";
+      statusText.textContent = "online";
+    } catch {
+      statusEl.className = "status offline";
+      statusText.textContent = "offline";
+    }
+  }
+  checkHealth();
+
+  function addBubble(role, text) {
+    emptyEl.remove();
+    const row = document.createElement("div");
+    row.className = "row " + (role === "user" ? "user" : "agent");
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    messagesEl.appendChild(row);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return bubble;
+  }
+
+  input.addEventListener("input", () => {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 120) + "px";
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const message = input.value.trim();
+    if (!message) return;
+
+    input.value = "";
+    input.style.height = "auto";
+    sendBtn.disabled = true;
+
+    addBubble("user", message);
+
+    const agentBubble = addBubble("agent", "");
+    agentBubble.classList.add("typing");
+
+    try {
+      const res = await fetch("/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, history }),
+      });
+
+      if (!res.ok || !res.body) {
+        throw new Error(`Request failed (${res.status})`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let reply = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        reply += decoder.decode(value, { stream: true });
+        agentBubble.textContent = reply;
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      agentBubble.classList.remove("typing");
+
+      if (reply.startsWith("[error]")) {
+        agentBubble.classList.add("error");
+      } else {
+        history.push({ role: "user", content: message });
+        history.push({ role: "assistant", content: reply });
+      }
+    } catch (err) {
+      agentBubble.classList.remove("typing");
+      agentBubble.classList.add("error");
+      agentBubble.textContent = "Couldn't reach the agent: " + err.message;
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  });
+</script>
+</body>
+</html>
