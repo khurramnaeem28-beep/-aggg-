@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     app.state.client = AsyncOpenAI(
         api_key=settings.openai_api_key,
-        base_url="https://groq.com"
+        base_url="https://api.groq.com/openai/v1"
     )
 
     yield
