@@ -1,20 +1,4 @@
-# What I Did, and Why
 
-You asked to drop the Docker workshop and rebuild this as a FastAPI project instead, keeping it simple but actually covering FastAPI's core ideas. This file walks through every decision.
-
----
-
-## 1. What got deleted
-
-`agent/`, `hello-world/`, the old `README.md`, and the old `commands.md` — the entire Docker teaching setup. Nothing was kept or ported as-is; the only thing carried over was the *logic* of the agent (call OpenAI, stream a reply), rewritten to run behind an API instead of a CLI.
-
-One flag from that cleanup: `agent/.env.example` contained a real-looking OpenAI key, not a placeholder. `.env.example` is supposed to be safe to share — that file wasn't. It's deleted now, but if that key is real, rotate it on OpenAI's dashboard. This file's existence doesn't fix that.
-
----
-
-## 2. Why two folders, not one
-
-The old project taught Docker in two steps: a trivial `hello-world` to learn the mechanics, then a real `agent` to see production practices. I mirrored that same shape for FastAPI, because the pedagogy still applies — you don't want to learn "routing" and "streaming responses with dependency-injected async clients" at the same time.
 
 - **`hello-fastapi/`** — one file, no external API calls, nothing that can fail for reasons unrelated to FastAPI itself. Just routes.
 - **`agent-api/`** — the real thing: config, validation, error handling, streaming, all wrapped around an actual OpenAI call.

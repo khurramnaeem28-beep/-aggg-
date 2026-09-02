@@ -16,7 +16,11 @@ async def lifespan(app: FastAPI):
     # Built once at startup and reused across requests, instead of
     # creating a new OpenAI client on every call.
     settings = get_settings()
-    app.state.client = AsyncOpenAI(api_key=settings.openai_api_key)
+    app.state.client = AsyncOpenAI(
+        api_key=settings.openai_api_key,
+        base_url="https://groq.com"
+    )
+
     yield
 
 
